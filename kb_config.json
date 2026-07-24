@@ -1,0 +1,36 @@
+{
+  "library_dir": "library",
+  "data_dir": "data",
+  "database": "data/kb.sqlite3",
+  "retrieval": {
+    "top_k": 8,
+    "chunk_chars": 1200,
+    "chunk_overlap_chars": 180,
+    "lexical_weight": 0.65,
+    "semantic_weight": 0.35
+  },
+  "ollama": {
+    "enabled": true,
+    "base_url": "http://127.0.0.1:11434",
+    "chat_model": "qwen3:8b",
+    "embedding_model": "bge-m3",
+    "timeout_seconds": 180
+  },
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8765
+  },
+  "indexing": {
+    "allowed_extensions": [
+      ".txt", ".md", ".markdown", ".csv", ".tsv", ".json", ".html", ".htm",
+      ".pdf", ".docx", ".xlsx", ".pptx", ".xml", ".yaml", ".yml", ".toml"
+    ],
+    "excluded_names": [".DS_Store", "Thumbs.db"],
+    "embed_on_ingest": "auto"
+  },
+  "privacy": {
+    "bind_local_only": true,
+    "telemetry": false,
+    "send_documents_to_cloud": false
+  }
+}

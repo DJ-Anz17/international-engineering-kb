@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "international-engineering-kb": {
+      "command": "/ABSOLUTE/PATH/TO/international-engineering-kb/mcp.command",
+      "args": []
+    }
+  }
+}

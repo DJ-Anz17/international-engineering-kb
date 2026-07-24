@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230e263d'/%3E%3Ctext x='12' y='43' fill='%23d19a43' font-size='30' font-family='serif'%3EIE%3C/text%3E%3C/svg%3E">
+  <title>国际工程知识库</title>
+  <style>
+    :root {
+      --ink: #132438;
+      --navy: #0e263d;
+      --blue: #185b77;
+      --teal: #168a88;
+      --gold: #d19a43;
+      --paper: #f5f2e9;
+      --card: #fffdf8;
+      --line: #d8d5cb;
+      --muted: #657382;
+      --danger: #9e3c35;
+      --shadow: 0 14px 38px rgba(14, 38, 61, .10);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(90deg, rgba(14,38,61,.025) 1px, transparent 1px) 0 0/32px 32px,
+        linear-gradient(rgba(14,38,61,.025) 1px, transparent 1px) 0 0/32px 32px,
+        var(--paper);
+      font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    }
+    .topbar {
+      min-height: 78px;
+      padding: 15px 28px;
+      background: var(--navy);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      border-bottom: 4px solid var(--gold);
+    }
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .mark {
+      width: 44px; height: 44px; border: 1px solid rgba(255,255,255,.32);
+      border-radius: 12px; display: grid; place-items: center; color: var(--gold);
+      font: 700 18px Georgia, serif; position: relative;
+    }
+    .mark::after { content: ""; position: absolute; inset: 8px -5px -5px 8px; border: 1px solid rgba(209,154,67,.5); border-radius: 9px; }
+    .brand h1 { font: 600 21px Georgia, "Songti SC", serif; margin: 0; letter-spacing: .08em; }
+    .brand p { margin: 3px 0 0; color: #b9c8d5; font-size: 12px; letter-spacing: .08em; }
+    .status { display: flex; gap: 9px; flex-wrap: wrap; justify-content: flex-end; }
+    .pill { border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.07); padding: 7px 10px; border-radius: 99px; font-size: 12px; color: #d9e4ec; }
+    .pill.ok { color: #9ee0cd; border-color: rgba(83,189,159,.4); }
+    .layout { display: grid; grid-template-columns: 286px minmax(0, 1fr); min-height: calc(100vh - 82px); }
+    aside { background: rgba(255,253,248,.83); border-right: 1px solid var(--line); padding: 24px 20px; }
+    main { width: min(1080px, 100%); padding: 34px 40px 70px; margin: 0 auto; }
+    .section-label { margin: 0 0 12px; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
+    .field { margin-bottom: 16px; }
+    label { display: block; font-size: 13px; font-weight: 650; margin-bottom: 7px; }
+    select, input[type=text], input[type=number] {
+      width: 100%; border: 1px solid var(--line); background: white; border-radius: 8px;
+      padding: 10px 11px; font: inherit; color: var(--ink); outline: none;
+    }
+    select:focus, input:focus, textarea:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(22,138,136,.10); }
+    .side-actions { padding-top: 18px; margin-top: 20px; border-top: 1px solid var(--line); }
+    .upload-zone { border: 1px dashed #a9aaa4; border-radius: 9px; padding: 13px; text-align: center; background: rgba(255,255,255,.6); }
+    .upload-zone input { width: 100%; font-size: 11px; }
+    button {
+      appearance: none; border: 0; border-radius: 8px; padding: 11px 16px; font: 650 13px inherit;
+      cursor: pointer; transition: transform .12s, background .12s, opacity .12s;
+    }
+    button:hover { transform: translateY(-1px); }
+    button:disabled { opacity: .48; cursor: wait; transform: none; }
+    .primary { background: var(--teal); color: white; }
+    .secondary { background: #e4e8e5; color: var(--navy); }
+    .ghost { width: 100%; margin-top: 9px; background: transparent; border: 1px solid var(--line); color: var(--muted); }
+    .hero { margin-bottom: 25px; }
+    .eyebrow { color: var(--teal); font-size: 12px; font-weight: 750; letter-spacing: .11em; text-transform: uppercase; }
+    .hero h2 { margin: 8px 0 8px; font: 600 clamp(26px, 4vw, 39px)/1.16 Georgia, "Songti SC", serif; color: var(--navy); }
+    .hero p { margin: 0; color: var(--muted); line-height: 1.7; max-width: 780px; }
+    .query-card { background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow); border-radius: 13px; padding: 19px; }
+    textarea { width: 100%; min-height: 120px; resize: vertical; border: 0; outline: 0; background: transparent; font: 16px/1.65 inherit; color: var(--ink); }
+    textarea::placeholder { color: #9ba3a7; }
+    .query-footer { display: flex; gap: 10px; justify-content: space-between; align-items: center; border-top: 1px solid #ebe8df; padding-top: 13px; }
+    .hint { color: var(--muted); font-size: 12px; }
+    .buttons { display: flex; gap: 9px; }
+    .examples { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 13px; }
+    .chip { background: rgba(255,255,255,.65); color: #4a6171; border: 1px solid var(--line); padding: 7px 10px; border-radius: 99px; font-weight: 500; font-size: 12px; }
+    #notice { min-height: 22px; margin: 15px 2px 0; color: var(--muted); font-size: 13px; }
+    #notice.error { color: var(--danger); }
+    .answer-card { margin-top: 18px; background: white; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+    .answer-head { padding: 13px 18px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; background: #faf9f5; }
+    .answer-head h3 { margin: 0; font: 600 16px Georgia, "Songti SC", serif; }
+    .answer-body { padding: 22px; font-size: 14px; line-height: 1.82; white-space: pre-wrap; }
+    .answer-body strong { color: var(--navy); }
+    .sources-title { margin: 28px 0 12px; display: flex; justify-content: space-between; align-items: center; }
+    .sources-title h3 { margin: 0; font: 600 18px Georgia, "Songti SC", serif; }
+    .source { background: rgba(255,255,255,.75); border: 1px solid var(--line); border-left: 4px solid var(--gold); border-radius: 9px; padding: 15px 16px; margin-bottom: 10px; }
+    .source-top { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+    .source h4 { margin: 0 0 5px; font-size: 14px; color: var(--navy); }
+    .source h4 a { color: inherit; text-decoration: none; }
+    .source h4 a:hover { text-decoration: underline; }
+    .meta { color: var(--muted); font-size: 11px; }
+    .source-id { flex: 0 0 auto; background: var(--navy); color: white; border-radius: 5px; padding: 3px 7px; font-size: 11px; }
+    .excerpt { margin: 11px 0 0; color: #40505b; font-size: 13px; line-height: 1.65; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; }
+    .empty { padding: 28px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 10px; }
+    .privacy { margin-top: 26px; padding: 13px; background: #eef2ef; border-radius: 8px; color: #5a6c70; font-size: 11px; line-height: 1.6; }
+    .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid #bbc8cb; border-top-color: var(--teal); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (max-width: 800px) {
+      .topbar { align-items: flex-start; padding: 14px 18px; }
+      .status { display: none; }
+      .layout { display: block; }
+      aside { border-right: 0; border-bottom: 1px solid var(--line); padding: 18px; }
+      main { padding: 27px 18px 60px; }
+      .query-footer { align-items: flex-start; flex-direction: column; }
+      .buttons { width: 100%; }
+      .buttons button { flex: 1; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="mark">IE</div>
+      <div><h1>国际工程知识库</h1><p>INTERNATIONAL ENGINEERING KNOWLEDGE BASE</p></div>
+    </div>
+    <div class="status">
+      <span class="pill" id="docStatus">0 份资料</span>
+      <span class="pill" id="chunkStatus">0 个证据片段</span>
+      <span class="pill" id="modelStatus">模型检测中</span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside>
+      <p class="section-label">分析设置</p>
+      <div class="field"><label for="mode">任务模式</label><select id="mode"></select></div>
+      <div class="field"><label for="category">资料类别</label><select id="category"><option value="">全部类别</option></select></div>
+      <div class="field"><label for="country">国别</label><input id="country" type="text" placeholder="如：沙特阿拉伯"></div>
+      <div class="field"><label for="contractForm">合同范本</label><input id="contractForm" type="text" placeholder="如：FIDIC 2017 Red Book"></div>
+      <div class="field"><label for="topK">证据数量</label><input id="topK" type="number" min="3" max="20" value="8"></div>
+
+      <div class="side-actions">
+        <p class="section-label">资料管理</p>
+        <div class="upload-zone">
+          <input type="file" id="files" multiple>
+          <button class="ghost" id="uploadButton" onclick="uploadFiles()">上传至“待分类”并索引</button>
+        </div>
+        <button class="ghost" id="reindexButton" onclick="reindex()">增量更新索引</button>
+      </div>
+      <div class="privacy">本服务默认仅监听 127.0.0.1。全文索引保存在本机 SQLite；只有你配置的本地 Ollama 会接收检索片段。</div>
+    </aside>
+
+    <main>
+      <section class="hero">
+        <div class="eyebrow">Evidence before opinion</div>
+        <h2>先查证据，再做工程判断</h2>
+        <p>面向投标报价、施工方案、工效、风险、合同与索赔的本地资料检索。所有结论都应回到原文件和具体位置。</p>
+      </section>
+
+      <section class="query-card">
+        <textarea id="query" placeholder="例如：根据现有资料，复核本项目变更通知时限、程序和逾期风险，并列出行动清单。"></textarea>
+        <div class="query-footer">
+          <span class="hint">Enter 换行 · 点击按钮执行</span>
+          <div class="buttons">
+            <button class="secondary" id="searchButton" onclick="runSearch()">只检索证据</button>
+            <button class="primary" id="askButton" onclick="runAsk()">AI 分析并引用</button>
+          </div>
+        </div>
+      </section>
+      <div class="examples">
+        <button class="chip" onclick="useExample(this)">投标总价中有哪些高敏感项？</button>
+        <button class="chip" onclick="useExample(this)">比较合同变更与索赔通知期限</button>
+        <button class="chip" onclick="useExample(this)">形成国别风险登记册</button>
+        <button class="chip" onclick="useExample(this)">复核混凝土施工工效假设</button>
+      </div>
+      <div id="notice"></div>
+      <section id="answer"></section>
+      <section id="sources"></section>
+    </main>
+  </div>
+
+  <script>
+    const state = { status: null };
+    const $ = id => document.getElementById(id);
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+    }
+    async function api(path, options = {}) {
+      const response = await fetch(path, options);
+      const data = await response.json();
+      if (!response.ok || data.error) throw new Error(data.error || `请求失败：${response.status}`);
+      return data;
+    }
+    function payload() {
+      return {
+        query: $('query').value.trim(), mode: $('mode').value, category: $('category').value,
+        country: $('country').value.trim(), contract_form: $('contractForm').value.trim(),
+        top_k: Number($('topK').value || 8)
+      };
+    }
+    function busy(value, message = '') {
+      ['askButton','searchButton','reindexButton','uploadButton'].forEach(id => $(id).disabled = value);
+      $('notice').className = '';
+      $('notice').innerHTML = value ? `<span class="spinner"></span>${escapeHtml(message)}` : escapeHtml(message);
+    }
+    function showError(error) {
+      busy(false); $('notice').className = 'error'; $('notice').textContent = error.message || String(error);
+    }
+    async function loadStatus() {
+      try {
+        const data = await api('/api/status'); state.status = data;
+        $('docStatus').textContent = `${data.documents} 份资料`;
+        $('chunkStatus').textContent = `${data.chunks} 个证据片段`;
+        const ready = data.ollama?.chat_model_ready;
+        $('modelStatus').textContent = ready ? `本地模型 ${data.ollama.chat_model}` : '仅检索模式';
+        $('modelStatus').classList.toggle('ok', !!ready);
+        $('mode').innerHTML = data.modes.map(item => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.label)}</option>`).join('');
+        $('category').innerHTML = '<option value="">全部类别</option>' + data.categories
+          .filter(item => item.category).map(item => `<option value="${escapeHtml(item.category)}">${escapeHtml(item.category)} (${item.count})</option>`).join('');
+      } catch (error) { showError(error); }
+    }
+    function useExample(button) { $('query').value = button.textContent; $('query').focus(); }
+    async function runSearch() {
+      const body = payload(); if (!body.query) return showError(new Error('请先输入问题或关键词。'));
+      busy(true, '正在检索本地证据…'); $('answer').innerHTML = ''; $('sources').innerHTML = '';
+      try {
+        const data = await api('/api/search', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+        renderSources(data.results, false); busy(false, `找到 ${data.results.length} 个相关证据片段。`);
+      } catch (error) { showError(error); }
+    }
+    async function runAsk() {
+      const body = payload(); if (!body.query) return showError(new Error('请先输入需要分析的问题。'));
+      busy(true, '正在检索证据并调用本地模型分析…'); $('answer').innerHTML = ''; $('sources').innerHTML = '';
+      try {
+        const data = await api('/api/ask', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+        $('answer').innerHTML = `<div class="answer-card"><div class="answer-head"><h3>分析意见</h3><span class="meta">${data.citation_warning ? '请检查引用完整性' : '已检测到来源引用'}</span></div><div class="answer-body">${formatAnswer(data.answer)}</div></div>`;
+        renderSources(data.sources, true); busy(false, `分析完成，使用 ${data.sources.length} 个证据片段。`);
+      } catch (error) { showError(error); }
+    }
+    function formatAnswer(value) {
+      let safe = escapeHtml(value);
+      safe = safe.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      safe = safe.replace(/\[S(\d+)\]/g, '<strong>[S$1]</strong>');
+      return safe;
+    }
+    function renderSources(items, numbered) {
+      if (!items?.length) { $('sources').innerHTML = '<div class="empty">没有检索到相关资料。可尝试更短的关键词，或先上传资料并更新索引。</div>'; return; }
+      $('sources').innerHTML = `<div class="sources-title"><h3>证据与原文</h3><span class="meta">${items.length} 条 · 点击标题打开原文件</span></div>` + items.map((item, index) => {
+        const sid = item.source_id || (numbered ? `S${index + 1}` : `#${index + 1}`);
+        const meta = [item.category, item.country, item.locator, item.retrieval].filter(Boolean).join(' · ');
+        return `<article class="source"><div class="source-top"><div><h4><a href="/api/file?path=${encodeURIComponent(item.path)}" target="_blank">${escapeHtml(item.title)}</a></h4><div class="meta">${escapeHtml(meta)}<br>${escapeHtml(item.path)}</div></div><span class="source-id">${escapeHtml(sid)}</span></div><p class="excerpt">${escapeHtml(item.content)}</p></article>`;
+      }).join('');
+    }
+    async function reindex() {
+      busy(true, '正在增量检查并更新索引…');
+      try {
+        const data = await api('/api/reindex', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+        busy(false, `索引完成：新增/更新 ${data.indexed}，跳过 ${data.skipped}，移除 ${data.removed}。`); await loadStatus();
+      } catch (error) { showError(error); }
+    }
+    async function uploadFiles() {
+      const files = $('files').files; if (!files.length) return showError(new Error('请先选择文件。'));
+      const form = new FormData(); [...files].forEach(file => form.append('files', file));
+      busy(true, `正在上传并索引 ${files.length} 个文件…`);
+      try {
+        const data = await api('/api/upload', {method:'POST', body:form});
+        busy(false, `已保存 ${data.saved.length} 个文件到“待分类”。`); $('files').value=''; await loadStatus();
+      } catch (error) { showError(error); }
+    }
+    loadStatus();
+  </script>
+</body>
+</html>
