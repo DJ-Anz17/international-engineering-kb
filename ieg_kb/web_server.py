@@ -14,7 +14,9 @@ from typing import Any, Dict
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
 from .answer import answer_question
-from .config import database_path, library_path, public_config
+from .chat_provider import catalog as chat_catalog
+from .chat_provider import status as chat_status
+from .config import database_path, library_path, public_config, save_chat_selection
 from .database import connect, initialize, stats
 from .ingest import ingest_library
 from .ollama import health
@@ -63,6 +65,7 @@ class KnowledgeBaseHandler(BaseHTTPRequestHandler):
             value = stats(connection)
             connection.close()
             value["ollama"] = health(self.config)
+            value["chat"] = chat_status(self.config)
             value["modes"] = modes()
             self._json(value)
         elif parsed.path == "/api/config":
@@ -104,6 +107,17 @@ class KnowledgeBaseHandler(BaseHTTPRequestHandler):
             elif parsed.path == "/api/reindex":
                 body = self._body()
                 self._json(ingest_library(self.config, force=bool(body.get("force", False))))
+            elif parsed.path == "/api/chat-provider":
+                body = self._body()
+                provider = str(body.get("provider", "")).lower()
+                model = str(body.get("model", "")).strip()
+                available = {item["id"]: item for item in chat_catalog(self.config)}
+                if provider not in available:
+                    raise ValueError("不支持的 AI 提供商。")
+                if not model or len(model) > 100 or any(char in model for char in "\\/\r\n"):
+                    raise ValueError("模型名称无效。")
+                save_chat_selection(self.config, provider, model)
+                self._json({"chat": chat_status(self.config)})
             elif parsed.path == "/api/upload":
                 self._upload()
             else:

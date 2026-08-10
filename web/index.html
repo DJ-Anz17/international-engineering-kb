@@ -136,6 +136,9 @@
   <div class="layout">
     <aside>
       <p class="section-label">分析设置</p>
+      <div class="field"><label for="provider">AI 提供商</label><select id="provider" onchange="providerChanged()"></select></div>
+      <div class="field"><label for="chatModel">回答模型</label><select id="chatModel"></select></div>
+      <button class="ghost" id="providerButton" onclick="saveProvider()">应用模型选择</button>
       <div class="field"><label for="mode">任务模式</label><select id="mode"></select></div>
       <div class="field"><label for="category">资料类别</label><select id="category"><option value="">全部类别</option></select></div>
       <div class="field"><label for="country">国别</label><input id="country" type="text" placeholder="如：沙特阿拉伯"></div>
@@ -150,7 +153,7 @@
         </div>
         <button class="ghost" id="reindexButton" onclick="reindex()">增量更新索引</button>
       </div>
-      <div class="privacy">本服务默认仅监听 127.0.0.1。全文索引保存在本机 SQLite；只有你配置的本地 Ollama 会接收检索片段。</div>
+      <div class="privacy">原始文件、全文索引和向量检索保存在本机。选择云端模型并点击“AI 分析”时，只有命中的证据片段和问题会发送给所选服务商；选择 Ollama 时不出本机。</div>
     </aside>
 
     <main>
@@ -183,7 +186,7 @@
   </div>
 
   <script>
-    const state = { status: null };
+    const state = { status: null, providers: [] };
     const $ = id => document.getElementById(id);
     function escapeHtml(value) {
       return String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
@@ -202,7 +205,7 @@
       };
     }
     function busy(value, message = '') {
-      ['askButton','searchButton','reindexButton','uploadButton'].forEach(id => $(id).disabled = value);
+      ['askButton','searchButton','reindexButton','uploadButton','providerButton'].forEach(id => $(id).disabled = value);
       $('notice').className = '';
       $('notice').innerHTML = value ? `<span class="spinner"></span>${escapeHtml(message)}` : escapeHtml(message);
     }
@@ -214,15 +217,35 @@
         const data = await api('/api/status'); state.status = data;
         $('docStatus').textContent = `${data.documents} 份资料`;
         $('chunkStatus').textContent = `${data.chunks} 个证据片段`;
-        const ready = data.ollama?.chat_model_ready;
-        $('modelStatus').textContent = ready ? `本地模型 ${data.ollama.chat_model}` : '仅检索模式';
+        const ready = data.chat?.configured;
+        const activeModel = data.chat.model_label || data.chat.model;
+        $('modelStatus').textContent = ready ? `${data.chat.label || data.chat.provider} · ${activeModel}` : `${data.chat?.label || data.chat?.provider || 'AI'} 未配置`;
         $('modelStatus').classList.toggle('ok', !!ready);
+        state.providers = data.chat?.providers || [];
+        $('provider').innerHTML = state.providers.map(item => `<option value="${escapeHtml(item.id)}" ${item.id === data.chat.provider ? 'selected' : ''}>${escapeHtml(item.label)}${item.configured ? '' : ' · 未配置'}</option>`).join('');
+        providerChanged(data.chat.model);
         $('mode').innerHTML = data.modes.map(item => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.label)}</option>`).join('');
         $('category').innerHTML = '<option value="">全部类别</option>' + data.categories
           .filter(item => item.category).map(item => `<option value="${escapeHtml(item.category)}">${escapeHtml(item.category)} (${item.count})</option>`).join('');
       } catch (error) { showError(error); }
     }
     function useExample(button) { $('query').value = button.textContent; $('query').focus(); }
+    function providerChanged(selectedModel = '') {
+      const item = state.providers.find(value => value.id === $('provider').value);
+      if (!item) return;
+      const models = [...new Set([selectedModel || item.model, ...(item.models || [])].filter(Boolean))];
+      $('chatModel').innerHTML = models.map(model => `<option value="${escapeHtml(model)}">${escapeHtml(item.model_labels?.[model] || model)}</option>`).join('');
+      if (selectedModel && models.includes(selectedModel)) $('chatModel').value = selectedModel;
+    }
+    async function saveProvider() {
+      const provider = $('provider').value, model = $('chatModel').value;
+      if (!provider || !model) return showError(new Error('请选择 AI 提供商和模型。'));
+      busy(true, '正在保存模型选择…');
+      try {
+        await api('/api/chat-provider', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({provider, model})});
+        busy(false, '模型选择已保存。'); await loadStatus();
+      } catch (error) { showError(error); }
+    }
     async function runSearch() {
       const body = payload(); if (!body.query) return showError(new Error('请先输入问题或关键词。'));
       busy(true, '正在检索本地证据…'); $('answer').innerHTML = ''; $('sources').innerHTML = '';
@@ -233,7 +256,8 @@
     }
     async function runAsk() {
       const body = payload(); if (!body.query) return showError(new Error('请先输入需要分析的问题。'));
-      busy(true, '正在检索证据并调用本地模型分析…'); $('answer').innerHTML = ''; $('sources').innerHTML = '';
+      const provider = state.status?.chat?.label || state.status?.chat?.provider || 'AI';
+      busy(true, `正在本地检索证据并调用 ${provider} 分析…`); $('answer').innerHTML = ''; $('sources').innerHTML = '';
       try {
         const data = await api('/api/ask', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
         $('answer').innerHTML = `<div class="answer-card"><div class="answer-head"><h3>分析意见</h3><span class="meta">${data.citation_warning ? '请检查引用完整性' : '已检测到来源引用'}</span></div><div class="answer-body">${formatAnswer(data.answer)}</div></div>`;

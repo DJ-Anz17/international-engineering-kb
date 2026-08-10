@@ -179,10 +179,17 @@ def ingest_library(
         rel_path = path.relative_to(root).as_posix()
         seen_paths.add(rel_path)
         checksum = _source_checksum(path)
-        existing = connection.execute("SELECT checksum FROM documents WHERE rel_path = ?", (rel_path,)).fetchone()
+        existing = connection.execute("SELECT id, checksum FROM documents WHERE rel_path = ?", (rel_path,)).fetchone()
         if existing and existing["checksum"] == checksum and not force:
-            report["skipped"] += 1
-            continue
+            missing_vectors = 0
+            if should_embed:
+                missing_vectors = connection.execute(
+                    "SELECT COUNT(*) FROM chunks WHERE doc_id = ? AND (vector IS NULL OR vector_model <> ?)",
+                    (existing["id"], config["ollama"]["embedding_model"]),
+                ).fetchone()[0]
+            if not missing_vectors:
+                report["skipped"] += 1
+                continue
 
         metadata, warnings = _read_metadata(path, Path(rel_path))
         try:

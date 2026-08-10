@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 from .answer import answer_question
+from .chat_provider import status as chat_status
 from .config import database_path, library_path, load_config, write_default_config
 from .database import connect, initialize, stats
 from .ingest import ingest_library
@@ -53,7 +54,7 @@ def main(argv: Any = None) -> int:
     search_parser.add_argument("--lexical-only", action="store_true")
     _add_filters(search_parser)
 
-    ask_parser = subparsers.add_parser("ask", help="用本机 Ollama 生成带引用的回答")
+    ask_parser = subparsers.add_parser("ask", help="用配置的 AI 服务生成带引用的回答")
     ask_parser.add_argument("question")
     ask_parser.add_argument("--mode", default="grounded_qa")
     ask_parser.add_argument("--top-k", type=int, default=8)
@@ -99,6 +100,7 @@ def main(argv: Any = None) -> int:
         value = stats(connection)
         connection.close()
         value["ollama"] = health(config)
+        value["chat"] = chat_status(config)
         _print(value)
     elif args.command == "doctor":
         try:
@@ -118,6 +120,7 @@ def main(argv: Any = None) -> int:
             "database": str(database_path(config)),
             "pdf_parser": pdf,
             "ollama": health(config),
+            "chat": chat_status(config),
         })
     return 0
 

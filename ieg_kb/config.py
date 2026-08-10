@@ -27,6 +27,70 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "embedding_model": "bge-m3",
         "timeout_seconds": 180,
     },
+    "chat": {
+        "provider": "ollama",
+    },
+    "gemini": {
+        "enabled": False,
+        "base_url": "https://generativelanguage.googleapis.com/v1beta",
+        "model": "gemini-3.6-flash",
+        "models": ["gemini-3.6-flash", "gemini-3.1-pro-preview"],
+        "timeout_seconds": 180,
+    },
+    "qwen": {
+        "enabled": True,
+        "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "model": "qwen-plus",
+        "models": ["qwen-plus", "qwen-max", "qwen-turbo"],
+        "api_key_env": "DASHSCOPE_API_KEY",
+        "timeout_seconds": 180,
+    },
+    "kimi": {
+        "enabled": True,
+        "base_url": "https://api.moonshot.cn/v1",
+        "model": "kimi-k2.6",
+        "models": ["kimi-k2.6", "kimi-k3"],
+        "api_key_env": "MOONSHOT_API_KEY",
+        "timeout_seconds": 180,
+    },
+    "openai": {
+        "enabled": True,
+        "base_url": "https://api.openai.com/v1",
+        "model": "gpt-5.2",
+        "models": ["gpt-5.6-luna", "gpt-5.2", "gpt-5-mini"],
+        "model_labels": {
+            "gpt-5.6-luna": "ChatGPT 5.6 Luna · Max",
+        },
+        "model_options": {
+            "gpt-5.6-luna": {"reasoning_effort": "max"},
+        },
+        "api_key_env": "OPENAI_API_KEY",
+        "timeout_seconds": 180,
+    },
+    "glm": {
+        "enabled": True,
+        "base_url": "https://open.bigmodel.cn/api/paas/v4",
+        "model": "glm-5.2",
+        "models": ["glm-5.2", "glm-4.7", "glm-4.5-air"],
+        "api_key_env": "ZAI_API_KEY",
+        "timeout_seconds": 180,
+    },
+    "deepseek": {
+        "enabled": True,
+        "base_url": "https://api.deepseek.com",
+        "model": "deepseek-v4-flash",
+        "models": ["deepseek-v4-flash", "deepseek-v4-pro"],
+        "model_labels": {
+            "deepseek-v4-flash": "DeepSeek V4 Flash · 深度思考",
+            "deepseek-v4-pro": "DeepSeek V4 Pro · 深度思考",
+        },
+        "model_options": {
+            "deepseek-v4-flash": {"reasoning_effort": "high"},
+            "deepseek-v4-pro": {"reasoning_effort": "high"},
+        },
+        "api_key_env": "DEEPSEEK_API_KEY",
+        "timeout_seconds": 180,
+    },
     "server": {"host": "127.0.0.1", "port": 8765},
     "indexing": {
         "allowed_extensions": [
@@ -41,6 +105,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "bind_local_only": True,
         "telemetry": False,
         "send_documents_to_cloud": False,
+        "allow_cloud_chat": False,
     },
 }
 
@@ -85,6 +150,22 @@ def library_path(config: Dict[str, Any]) -> Path:
 
 def public_config(config: Dict[str, Any]) -> Dict[str, Any]:
     return {key: value for key, value in config.items() if not key.startswith("_")}
+
+
+def save_chat_selection(config: Dict[str, Any], provider: str, model: str) -> None:
+    """Persist only the active provider/model while preserving user settings."""
+    config_path = Path(config["_config_path"])
+    raw: Dict[str, Any] = {}
+    if config_path.exists():
+        with config_path.open("r", encoding="utf-8") as handle:
+            raw = json.load(handle)
+    raw.setdefault("chat", {})["provider"] = provider
+    raw.setdefault(provider, {})["model"] = model
+    config["chat"]["provider"] = provider
+    config[provider]["model"] = model
+    temporary = config_path.with_suffix(config_path.suffix + ".tmp")
+    temporary.write_text(json.dumps(raw, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(config_path)
 
 
 def write_default_config(path: Optional[str] = None, overwrite: bool = False) -> Path:

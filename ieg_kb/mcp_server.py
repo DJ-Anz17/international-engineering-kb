@@ -55,7 +55,7 @@ def _tool_definitions() -> list:
         },
         {
             "name": "kb_answer",
-            "description": "调用本机 Ollama，以知识库检索结果为唯一证据生成带引用的国际工程分析。",
+            "description": "调用配置的 AI 服务，以知识库检索结果为唯一证据生成带引用的国际工程分析。",
             "inputSchema": {
                 "type": "object",
                 "properties": {

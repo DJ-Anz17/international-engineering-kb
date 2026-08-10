@@ -7,7 +7,8 @@
 - 国际工程专用九大资料域：投标报价、技术方案、工效资源、风险/HSE、合同索赔、国别市场、项目复盘、标准规范、模板清单；
 - PDF、DOCX、XLSX、PPTX、Markdown、TXT、CSV、HTML、JSON 等格式；
 - 中文字符 n-gram + 英文关键词 + 国际工程同义词的全文检索；
-- Ollama 可用时自动启用 BGE-M3 向量检索，采用全文/向量融合排序；
+- Ollama + BGE-M3 在本机完成向量检索，采用全文/向量融合排序；
+- 可选择 Ollama、Gemini、Qwen、Kimi、OpenAI 或 GLM 生成回答，云端 API Key 保存在 macOS 钥匙串；
 - 所有结果保留原文件、页码/工作表/幻灯片定位和原文片段；
 - 八种分析模式：依据问答、报价复核、技术审查、工效测算、风险登记册、合同审查、索赔通知、国别分析；
 - 本地网页、命令行和 MCP 三种入口；
@@ -15,6 +16,23 @@
 - 增量索引、文件删除同步、元数据筛选、上传到“待分类”。
 
 ## 5 分钟开始
+
+## 已部署的 macOS 本地服务
+
+本机安装后的运行副本位于：
+
+```text
+~/Library/Application Support/InternationalEngineeringKB
+```
+
+- 登录后自动启动 Ollama 和知识库；
+- 桌面的“国际工程知识库”快捷方式可直接打开；
+- 本项目目录中的 `本地资料库` 链接指向实际资料目录；
+- 双击 `run.command` 可检查服务并打开网页；
+- 双击 `stop-local.command` 可停止两个用户级服务。
+- 源代码更新后，双击 `update-local.command` 可保留资料和索引并更新已安装的运行副本。
+
+本地地址始终为 [http://127.0.0.1:8765](http://127.0.0.1:8765)，默认不对局域网开放。
 
 ### 1. 先用纯本地检索（不需要安装模型）
 
@@ -48,6 +66,24 @@ python3 -m ieg_kb serve
 - `bge-m3`：多语向量检索。
 
 模型占用数 GB；不需要 AI 生成回答时可跳过。模型安装后，重新运行 `./reindex.command` 即可建立向量索引。
+
+### 4. 选择 AI 提供商和模型
+
+系统支持以下回答服务：
+
+- `Ollama`：完全本地，可使用本机已经安装的 Qwen 等模型；
+- `Gemini`：Google Gemini API；
+- `Qwen`：阿里云百炼兼容接口；
+- `Kimi`：月之暗面兼容接口；
+- `OpenAI`：OpenAI API；
+- `GLM`：智谱开放平台兼容接口。
+- `DeepSeek`：DeepSeek 官方 OpenAI 兼容接口，提供 V4 Flash 和 V4 Pro。
+
+双击 `configure-ai.command`，选择服务商并粘贴相应 API Key。每个 Key 都单独进入 macOS 钥匙串，不会写入 `kb_config.json`、日志或 Git。然后在网页左侧选择“AI 提供商”和“回答模型”，点击“应用模型选择”。
+
+OpenAI 模型列表包含 `ChatGPT 5.6 Luna · Max`：实际 API 模型为 `gpt-5.6-luna`，并自动使用 `reasoning_effort: max`。界面采用易读名称，但不会伪造 `gpt-5.6-luna-max` 模型标识。
+
+无论选择哪种回答模型，`bge-m3` 都在本机完成资料向量检索。选择云端服务时，只有用户问题和命中的少量证据片段会发送给相应服务商；原始文件、SQLite 索引和完整资料不会上传。发送合同、投标或项目资料前，请确认其保密要求允许发送给所选服务商。
 
 ## 放入自己的资料
 
@@ -106,7 +142,7 @@ python3 -m ieg_kb ingest --force --embeddings on
 # 直接检索
 python3 -m ieg_kb search "变更通知期限" --category "合同与索赔"
 
-# 本地 AI 分析
+# 使用配置的 AI 服务分析
 python3 -m ieg_kb ask "复核本项目的索赔通知程序" --mode claim_notice
 
 # 统计
@@ -120,7 +156,7 @@ MCP 服务提供四个只读工具：
 - `kb_search`：检索并返回可引用原文；
 - `kb_get_document`：按文档 ID 分页读取；
 - `kb_status`：查看资料库状态；
-- `kb_answer`：由本机 Ollama 生成专业分析。
+- `kb_answer`：由配置的 AI 服务生成专业分析。
 
 启动命令是：
 
