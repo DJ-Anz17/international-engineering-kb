@@ -19,6 +19,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "chunk_overlap_chars": 180,
         "lexical_weight": 0.65,
         "semantic_weight": 0.35,
+        "max_chunks_per_document": 3,
     },
     "ollama": {
         "enabled": True,
@@ -94,8 +95,10 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "server": {"host": "127.0.0.1", "port": 8765},
     "indexing": {
         "allowed_extensions": [
-            ".txt", ".md", ".markdown", ".csv", ".tsv", ".json",
-            ".html", ".htm", ".pdf", ".docx", ".xlsx", ".pptx",
+            ".txt", ".text", ".md", ".markdown", ".rst", ".adoc", ".asciidoc",
+            ".csv", ".tsv", ".json", ".html", ".htm", ".xhtml",
+            ".pdf", ".docx", ".xlsx", ".pptx", ".pptm",
+            ".epub", ".rtf", ".mobi", ".azw", ".azw3",
             ".xml", ".yaml", ".yml", ".toml",
         ],
         "excluded_names": [".DS_Store", "Thumbs.db"],
@@ -128,6 +131,11 @@ def load_config(path: Optional[str] = None) -> Dict[str, Any]:
         with config_path.open("r", encoding="utf-8") as handle:
             user_config = json.load(handle)
     config = _deep_merge(DEFAULT_CONFIG, user_config)
+    default_extensions = DEFAULT_CONFIG["indexing"]["allowed_extensions"]
+    configured_extensions = config["indexing"].get("allowed_extensions", [])
+    config["indexing"]["allowed_extensions"] = list(dict.fromkeys(
+        str(value).lower() for value in [*configured_extensions, *default_extensions]
+    ))
     config["_config_path"] = str(config_path)
     config["_root"] = str(config_path.parent)
     return config

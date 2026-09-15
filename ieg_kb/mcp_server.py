@@ -16,6 +16,7 @@ PROTOCOL_VERSION = "2025-06-18"
 
 def _tool_definitions() -> list:
     filters = {
+        "document_id": {"type": "string", "description": "只检索指定文档 ID"},
         "category": {"type": "string", "description": "如：合同与索赔、投标报价"},
         "country": {"type": "string", "description": "国别精确筛选"},
         "project": {"type": "string", "description": "项目名精确筛选"},
@@ -75,7 +76,7 @@ def _tool_definitions() -> list:
 
 
 def _filters(arguments: Dict[str, Any]) -> Dict[str, str]:
-    keys = ("category", "country", "project", "contract_form")
+    keys = ("document_id", "category", "country", "project", "contract_form")
     return {key: str(arguments.get(key, "")) for key in keys if arguments.get(key)}
 
 
@@ -138,7 +139,7 @@ def run(config: Dict[str, Any]) -> None:
                 result = {
                     "protocolVersion": PROTOCOL_VERSION,
                     "capabilities": {"tools": {"listChanged": False}},
-                    "serverInfo": {"name": "international-engineering-kb", "version": "0.1.0"},
+                    "serverInfo": {"name": "international-engineering-kb", "version": "0.2.0"},
                 }
             elif method == "tools/list":
                 result = {"tools": _tool_definitions()}

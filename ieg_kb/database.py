@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS documents (
     mtime REAL NOT NULL,
     indexed_at TEXT NOT NULL,
     parser TEXT NOT NULL DEFAULT '',
-    warnings_json TEXT NOT NULL DEFAULT '[]'
+    warnings_json TEXT NOT NULL DEFAULT '[]',
+    security_json TEXT NOT NULL DEFAULT '{}'
 );
 
 CREATE TABLE IF NOT EXISTS chunks (
@@ -81,6 +82,9 @@ def connect(path: Path) -> sqlite3.Connection:
 
 def initialize(connection: sqlite3.Connection) -> None:
     connection.executescript(SCHEMA)
+    document_columns = {row["name"] for row in connection.execute("PRAGMA table_info(documents)").fetchall()}
+    if "security_json" not in document_columns:
+        connection.execute("ALTER TABLE documents ADD COLUMN security_json TEXT NOT NULL DEFAULT '{}'")
     connection.commit()
 
 
@@ -88,8 +92,12 @@ def stats(connection: sqlite3.Connection) -> Dict[str, Any]:
     documents = connection.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
     chunks = connection.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
     embedded = connection.execute("SELECT COUNT(*) FROM chunks WHERE vector IS NOT NULL").fetchone()[0]
+    pending_embeddings = connection.execute("SELECT COUNT(*) FROM chunks WHERE vector IS NULL").fetchone()[0]
     warnings = connection.execute(
         "SELECT COUNT(*) FROM documents WHERE warnings_json <> '[]'"
+    ).fetchone()[0]
+    security_review = connection.execute(
+        "SELECT COUNT(*) FROM documents WHERE json_extract(security_json, '$.status') = 'review-required'"
     ).fetchone()[0]
     categories = [
         dict(row)
@@ -101,6 +109,9 @@ def stats(connection: sqlite3.Connection) -> Dict[str, Any]:
         "documents": documents,
         "chunks": chunks,
         "embedded_chunks": embedded,
+        "pending_embeddings": pending_embeddings,
+        "embedding_coverage": round((embedded / chunks) * 100, 1) if chunks else 0.0,
         "documents_with_warnings": warnings,
+        "security_review_documents": security_review,
         "categories": categories,
     }
