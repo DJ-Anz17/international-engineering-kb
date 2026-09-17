@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.international-engineering-kb</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>/Users/dj/Library/Application Support/InternationalEngineeringKB/start-kb.command</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/dj/Library/Application Support/InternationalEngineeringKB</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>StandardOutPath</key>
+  <string>/Users/dj/Library/Application Support/InternationalEngineeringKB/.logs/kb.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/dj/Library/Application Support/InternationalEngineeringKB/.logs/kb-error.log</string>
+</dict>
+</plist>

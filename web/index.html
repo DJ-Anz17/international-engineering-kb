@@ -103,6 +103,20 @@
     .source h4 a:hover { text-decoration: underline; }
     .meta { color: var(--muted); font-size: 11px; }
     .source-id { flex: 0 0 auto; background: var(--navy); color: white; border-radius: 5px; padding: 3px 7px; font-size: 11px; }
+    .document-list { max-height: 320px; overflow-y: auto; }
+    .document-item { padding: 8px 0; border-bottom: 1px solid #ebe8df; }
+    .document-item:last-child { border-bottom: 0; }
+    .document-item a { display: block; color: var(--navy); text-decoration: none; font-size: 12px; line-height: 1.35; }
+    .document-item a:hover { text-decoration: underline; }
+    .document-item .meta { display: block; margin-top: 3px; }
+    .document-actions { display: flex; gap: 6px; margin-top: 6px; }
+    .document-actions button, .note-actions button { padding: 5px 8px; font-size: 11px; }
+    .security-review { color: var(--danger); }
+    .saved-note { padding: 9px 0; border-bottom: 1px solid #ebe8df; }
+    .saved-note:last-child { border-bottom: 0; }
+    .saved-note strong { display: block; font-size: 12px; line-height: 1.35; }
+    .saved-note p { margin: 4px 0; font-size: 11px; color: var(--muted); line-height: 1.45; }
+    .note-actions { display: flex; gap: 6px; margin-top: 7px; }
     .excerpt { margin: 11px 0 0; color: #40505b; font-size: 13px; line-height: 1.65; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; }
     .empty { padding: 28px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 10px; }
     .privacy { margin-top: 26px; padding: 13px; background: #eef2ef; border-radius: 8px; color: #5a6c70; font-size: 11px; line-height: 1.6; }
@@ -129,6 +143,8 @@
     <div class="status">
       <span class="pill" id="docStatus">0 份资料</span>
       <span class="pill" id="chunkStatus">0 个证据片段</span>
+      <span class="pill" id="embeddingStatus">向量检测中</span>
+      <span class="pill" id="securityStatus">安全扫描中</span>
       <span class="pill" id="modelStatus">模型检测中</span>
     </div>
   </header>
@@ -136,8 +152,12 @@
   <div class="layout">
     <aside>
       <p class="section-label">分析设置</p>
+      <div class="field"><label for="provider">AI 提供商</label><select id="provider" onchange="providerChanged()"></select></div>
+      <div class="field"><label for="chatModel">回答模型</label><select id="chatModel"></select></div>
+      <button class="ghost" id="providerButton" onclick="saveProvider()">应用模型选择</button>
       <div class="field"><label for="mode">任务模式</label><select id="mode"></select></div>
       <div class="field"><label for="category">资料类别</label><select id="category"><option value="">全部类别</option></select></div>
+      <div class="field"><label for="documentId">指定学习资料</label><select id="documentId"><option value="">全部资料</option></select></div>
       <div class="field"><label for="country">国别</label><input id="country" type="text" placeholder="如：沙特阿拉伯"></div>
       <div class="field"><label for="contractForm">合同范本</label><input id="contractForm" type="text" placeholder="如：FIDIC 2017 Red Book"></div>
       <div class="field"><label for="topK">证据数量</label><input id="topK" type="number" min="3" max="20" value="8"></div>
@@ -149,8 +169,18 @@
           <button class="ghost" id="uploadButton" onclick="uploadFiles()">上传至“待分类”并索引</button>
         </div>
         <button class="ghost" id="reindexButton" onclick="reindex()">增量更新索引</button>
+        <button class="ghost" id="learningPackButton" onclick="exportLearningPack()">导出所选资料学习包</button>
       </div>
-      <div class="privacy">本服务默认仅监听 127.0.0.1。全文索引保存在本机 SQLite；只有你配置的本地 Ollama 会接收检索片段。</div>
+      <div class="side-actions">
+        <p class="section-label">资料目录</p>
+        <div id="documentList" class="document-list"><div class="meta">正在加载资料目录…</div></div>
+      </div>
+      <div class="side-actions">
+        <p class="section-label">我的本地笔记</p>
+        <div id="savedNotes" class="document-list"><div class="meta">尚未收藏证据。</div></div>
+        <button class="ghost" onclick="exportNotes()">导出笔记 JSON</button>
+      </div>
+      <div class="privacy">原始文件、全文索引和向量检索保存在本机。选择云端模型并点击“AI 分析”时，只有命中的证据片段和问题会发送给所选服务商；选择 Ollama 时不出本机。</div>
     </aside>
 
     <main>
@@ -175,6 +205,8 @@
         <button class="chip" onclick="useExample(this)">比较合同变更与索赔通知期限</button>
         <button class="chip" onclick="useExample(this)">形成国别风险登记册</button>
         <button class="chip" onclick="useExample(this)">复核混凝土施工工效假设</button>
+        <button class="chip" onclick="useExample(this)">梳理所选材料的核心框架和关键术语</button>
+        <button class="chip" onclick="useExample(this)">根据所选材料生成学习自检题</button>
       </div>
       <div id="notice"></div>
       <section id="answer"></section>
@@ -183,7 +215,8 @@
   </div>
 
   <script>
-    const state = { status: null };
+    const state = { status: null, providers: [], documents: [], lastSources: [] };
+    const NOTES_KEY = 'ieg-kb:saved-evidence:v1';
     const $ = id => document.getElementById(id);
     function escapeHtml(value) {
       return String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
@@ -197,12 +230,13 @@
     function payload() {
       return {
         query: $('query').value.trim(), mode: $('mode').value, category: $('category').value,
+        document_id: $('documentId').value,
         country: $('country').value.trim(), contract_form: $('contractForm').value.trim(),
         top_k: Number($('topK').value || 8)
       };
     }
     function busy(value, message = '') {
-      ['askButton','searchButton','reindexButton','uploadButton'].forEach(id => $(id).disabled = value);
+      ['askButton','searchButton','reindexButton','uploadButton','providerButton','learningPackButton'].forEach(id => $(id).disabled = value);
       $('notice').className = '';
       $('notice').innerHTML = value ? `<span class="spinner"></span>${escapeHtml(message)}` : escapeHtml(message);
     }
@@ -214,15 +248,74 @@
         const data = await api('/api/status'); state.status = data;
         $('docStatus').textContent = `${data.documents} 份资料`;
         $('chunkStatus').textContent = `${data.chunks} 个证据片段`;
-        const ready = data.ollama?.chat_model_ready;
-        $('modelStatus').textContent = ready ? `本地模型 ${data.ollama.chat_model}` : '仅检索模式';
+        const pending = Number(data.pending_embeddings || 0);
+        $('embeddingStatus').textContent = pending ? `待向量化 ${pending}` : '向量检索已就绪';
+        $('embeddingStatus').classList.toggle('ok', !pending);
+        const securityReview = Number(data.security_review_documents || 0);
+        $('securityStatus').textContent = securityReview ? `安全复核 ${securityReview}` : '材料安全扫描正常';
+        $('securityStatus').classList.toggle('ok', !securityReview);
+        const ready = data.chat?.configured;
+        const activeModel = data.chat.model_label || data.chat.model;
+        $('modelStatus').textContent = ready ? `${data.chat.label || data.chat.provider} · ${activeModel}` : `${data.chat?.label || data.chat?.provider || 'AI'} 未配置`;
         $('modelStatus').classList.toggle('ok', !!ready);
+        state.providers = data.chat?.providers || [];
+        $('provider').innerHTML = state.providers.map(item => `<option value="${escapeHtml(item.id)}" ${item.id === data.chat.provider ? 'selected' : ''}>${escapeHtml(item.label)}${item.configured ? '' : ' · 未配置'}</option>`).join('');
+        providerChanged(data.chat.model);
         $('mode').innerHTML = data.modes.map(item => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.label)}</option>`).join('');
         $('category').innerHTML = '<option value="">全部类别</option>' + data.categories
           .filter(item => item.category).map(item => `<option value="${escapeHtml(item.category)}">${escapeHtml(item.category)} (${item.count})</option>`).join('');
+        await loadDocuments();
+        renderNotes();
       } catch (error) { showError(error); }
     }
     function useExample(button) { $('query').value = button.textContent; $('query').focus(); }
+    async function loadDocuments() {
+      try {
+        const selected = $('documentId').value;
+        const data = await api('/api/documents'); state.documents = data.documents;
+        $('documentId').innerHTML = '<option value="">全部资料</option>' + data.documents.map(item => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.title)}</option>`).join('');
+        if (data.documents.some(item => item.id === selected)) $('documentId').value = selected;
+        $('documentList').innerHTML = data.documents.length ? data.documents.map(item => {
+          const vector = item.chunks ? `${item.embedded_chunks}/${item.chunks}` : '0/0';
+          const security = item.security?.status === 'review-required' ? '<span class="security-review"> · 安全复核</span>' : '';
+          return `<div class="document-item"><a href="/api/file?path=${encodeURIComponent(item.rel_path)}" target="_blank">${escapeHtml(item.title)}</a><span class="meta">${escapeHtml(item.category)} · ${vector} 向量${security}</span><div class="document-actions"><button class="ghost" onclick="selectDocument('${escapeHtml(item.id)}')">选中学习</button><button class="ghost" onclick="exportLearningPack('${escapeHtml(item.id)}')">学习包</button></div></div>`;
+        }).join('') : '<div class="meta">暂无资料</div>';
+      } catch (error) { $('documentList').innerHTML = `<div class="meta">资料目录暂不可用：${escapeHtml(error.message || error)}</div>`; }
+    }
+    function selectDocument(id) {
+      $('documentId').value = id;
+      $('category').value = '';
+      $('mode').value = 'material_quick';
+      const item = state.documents.find(value => value.id === id);
+      if (item) $('query').value = `快速了解《${item.title}》的核心框架、关键术语、工程应用和学习边界。`;
+      $('query').focus();
+    }
+    async function exportLearningPack(id = '') {
+      const documentId = id || $('documentId').value;
+      if (!documentId) return showError(new Error('请先在“指定学习资料”中选择一份文件。'));
+      busy(true, '正在生成可追溯离线学习包…');
+      try {
+        const data = await api('/api/learning-pack', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({document_id:documentId})});
+        busy(false, `学习包已生成：${data.chunks} 个片段，正在下载。`);
+        window.location.href = data.download_url;
+      } catch (error) { showError(error); }
+    }
+    function providerChanged(selectedModel = '') {
+      const item = state.providers.find(value => value.id === $('provider').value);
+      if (!item) return;
+      const models = [...new Set([selectedModel || item.model, ...(item.models || [])].filter(Boolean))];
+      $('chatModel').innerHTML = models.map(model => `<option value="${escapeHtml(model)}">${escapeHtml(item.model_labels?.[model] || model)}</option>`).join('');
+      if (selectedModel && models.includes(selectedModel)) $('chatModel').value = selectedModel;
+    }
+    async function saveProvider() {
+      const provider = $('provider').value, model = $('chatModel').value;
+      if (!provider || !model) return showError(new Error('请选择 AI 提供商和模型。'));
+      busy(true, '正在保存模型选择…');
+      try {
+        await api('/api/chat-provider', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({provider, model})});
+        busy(false, '模型选择已保存。'); await loadStatus();
+      } catch (error) { showError(error); }
+    }
     async function runSearch() {
       const body = payload(); if (!body.query) return showError(new Error('请先输入问题或关键词。'));
       busy(true, '正在检索本地证据…'); $('answer').innerHTML = ''; $('sources').innerHTML = '';
@@ -233,7 +326,8 @@
     }
     async function runAsk() {
       const body = payload(); if (!body.query) return showError(new Error('请先输入需要分析的问题。'));
-      busy(true, '正在检索证据并调用本地模型分析…'); $('answer').innerHTML = ''; $('sources').innerHTML = '';
+      const provider = state.status?.chat?.label || state.status?.chat?.provider || 'AI';
+      busy(true, `正在本地检索证据并调用 ${provider} 分析…`); $('answer').innerHTML = ''; $('sources').innerHTML = '';
       try {
         const data = await api('/api/ask', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
         $('answer').innerHTML = `<div class="answer-card"><div class="answer-head"><h3>分析意见</h3><span class="meta">${data.citation_warning ? '请检查引用完整性' : '已检测到来源引用'}</span></div><div class="answer-body">${formatAnswer(data.answer)}</div></div>`;
@@ -247,18 +341,40 @@
       return safe;
     }
     function renderSources(items, numbered) {
+      state.lastSources = items || [];
       if (!items?.length) { $('sources').innerHTML = '<div class="empty">没有检索到相关资料。可尝试更短的关键词，或先上传资料并更新索引。</div>'; return; }
       $('sources').innerHTML = `<div class="sources-title"><h3>证据与原文</h3><span class="meta">${items.length} 条 · 点击标题打开原文件</span></div>` + items.map((item, index) => {
         const sid = item.source_id || (numbered ? `S${index + 1}` : `#${index + 1}`);
         const meta = [item.category, item.country, item.locator, item.retrieval].filter(Boolean).join(' · ');
-        return `<article class="source"><div class="source-top"><div><h4><a href="/api/file?path=${encodeURIComponent(item.path)}" target="_blank">${escapeHtml(item.title)}</a></h4><div class="meta">${escapeHtml(meta)}<br>${escapeHtml(item.path)}</div></div><span class="source-id">${escapeHtml(sid)}</span></div><p class="excerpt">${escapeHtml(item.content)}</p></article>`;
+        return `<article class="source"><div class="source-top"><div><h4><a href="/api/file?path=${encodeURIComponent(item.path)}" target="_blank">${escapeHtml(item.title)}</a></h4><div class="meta">${escapeHtml(meta)}<br>${escapeHtml(item.path)}</div></div><span class="source-id">${escapeHtml(sid)}</span></div><p class="excerpt">${escapeHtml(item.content)}</p><div class="note-actions"><button class="ghost" onclick="saveSource(${index})">☆ 收藏到本地笔记</button></div></article>`;
       }).join('');
+    }
+    function noteStore() { try { return JSON.parse(localStorage.getItem(NOTES_KEY) || '{}'); } catch (_) { return {}; } }
+    function saveSource(index) {
+      const item = state.lastSources[index]; if (!item) return;
+      const saved = noteStore(); const key = `${item.document_id}:${item.chunk_id}`;
+      saved[key] = {key, title:item.title, path:item.path, locator:item.locator, content:item.content, saved_at:new Date().toISOString()};
+      localStorage.setItem(NOTES_KEY, JSON.stringify(saved)); renderNotes();
+      $('notice').textContent = '证据已收藏到本浏览器。';
+    }
+    function deleteNote(key) {
+      const saved = noteStore(); delete saved[key]; localStorage.setItem(NOTES_KEY, JSON.stringify(saved)); renderNotes();
+    }
+    function renderNotes() {
+      const values = Object.values(noteStore()).sort((a,b) => String(b.saved_at).localeCompare(String(a.saved_at)));
+      $('savedNotes').innerHTML = values.length ? values.map(item => `<div class="saved-note"><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.locator || '未标注')} · ${escapeHtml(String(item.content || '').slice(0,90))}</p><div class="note-actions"><button class="ghost" onclick="deleteNote('${escapeHtml(item.key)}')">删除</button></div></div>`).join('') : '<div class="meta">尚未收藏证据。</div>';
+    }
+    function exportNotes() {
+      const value = {schemaVersion:'ieg-kb/saved-evidence-v1', exportedAt:new Date().toISOString(), notes:Object.values(noteStore())};
+      const blob = new Blob([JSON.stringify(value,null,2)], {type:'application/json'}); const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob); link.download = '国际工程知识库-本地笔记.json'; link.click(); URL.revokeObjectURL(link.href);
     }
     async function reindex() {
       busy(true, '正在增量检查并更新索引…');
       try {
         const data = await api('/api/reindex', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
-        busy(false, `索引完成：新增/更新 ${data.indexed}，跳过 ${data.skipped}，移除 ${data.removed}。`); await loadStatus();
+        const pending = Number(data.pending_embeddings || 0);
+        busy(false, `索引完成：新增/更新 ${data.indexed}，跳过 ${data.skipped}，移除 ${data.removed}。${pending ? `仍有 ${pending} 个片段待向量化。` : ''}`); await loadStatus();
       } catch (error) { showError(error); }
     }
     async function uploadFiles() {

@@ -9,6 +9,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from .config import database_path, library_path
 from .database import connect, initialize
+from .material_security import scan_material
 from .ollama import OllamaError, embed, health, pack_vector
 from .parsers import ParsedUnit, parse_file
 from .tokenizer import search_token_text
@@ -82,6 +83,11 @@ def _source_checksum(path: Path) -> str:
 
 def _document_id(rel_path: str) -> str:
     return hashlib.sha256(rel_path.encode("utf-8")).hexdigest()[:20]
+
+
+def _security_warning(security: Dict[str, Any]) -> str:
+    kinds = sorted({item["kind"] for item in security.get("findings", [])})
+    return "材料安全扫描需要人工复核：%s" % "、".join(kinds)
 
 
 def _split_long_text(text: str, maximum: int, overlap: int) -> Iterable[str]:
@@ -172,6 +178,10 @@ def ingest_library(
         "removed": 0,
         "warnings": [],
         "embedding_enabled": should_embed,
+        "embedding_model": config["ollama"].get("embedding_model", ""),
+        "embedding_failures": 0,
+        "pending_embeddings": 0,
+        "security_review_required": 0,
         "files": [],
     }
     seen_paths = set()
@@ -179,10 +189,38 @@ def ingest_library(
         rel_path = path.relative_to(root).as_posix()
         seen_paths.add(rel_path)
         checksum = _source_checksum(path)
-        existing = connection.execute("SELECT checksum FROM documents WHERE rel_path = ?", (rel_path,)).fetchone()
+        existing = connection.execute(
+            "SELECT id, checksum, warnings_json, security_json FROM documents WHERE rel_path = ?",
+            (rel_path,),
+        ).fetchone()
         if existing and existing["checksum"] == checksum and not force:
-            report["skipped"] += 1
-            continue
+            if not existing["security_json"] or existing["security_json"] == "{}":
+                stored_text = "\n\n".join(
+                    row[0] for row in connection.execute(
+                        "SELECT content FROM chunks WHERE doc_id = ? ORDER BY ordinal", (existing["id"],)
+                    ).fetchall()
+                )
+                security = scan_material(path, stored_text)
+                stored_warnings = json.loads(existing["warnings_json"] or "[]")
+                if security["status"] == "review-required":
+                    report["security_review_required"] += 1
+                    warning = _security_warning(security)
+                    if warning not in stored_warnings:
+                        stored_warnings.append(warning)
+                with connection:
+                    connection.execute(
+                        "UPDATE documents SET security_json = ?, warnings_json = ? WHERE id = ?",
+                        (json.dumps(security, ensure_ascii=False), json.dumps(stored_warnings, ensure_ascii=False), existing["id"]),
+                    )
+            missing_vectors = 0
+            if should_embed:
+                missing_vectors = connection.execute(
+                    "SELECT COUNT(*) FROM chunks WHERE doc_id = ? AND (vector IS NULL OR vector_model <> ?)",
+                    (existing["id"], config["ollama"]["embedding_model"]),
+                ).fetchone()[0]
+            if not missing_vectors:
+                report["skipped"] += 1
+                continue
 
         metadata, warnings = _read_metadata(path, Path(rel_path))
         try:
@@ -198,6 +236,12 @@ def ingest_library(
             chunks = []
             warnings.append("解析失败：%s" % exc)
 
+        extracted_text = "\n\n".join(item["content"] for item in chunks)
+        security = scan_material(path, extracted_text)
+        if security["status"] == "review-required":
+            report["security_review_required"] += 1
+            warnings.append(_security_warning(security))
+
         vectors: List[Optional[List[float]]] = [None] * len(chunks)
         if should_embed and chunks:
             try:
@@ -209,7 +253,7 @@ def ingest_library(
                         vectors[start + offset] = vector
             except OllamaError as exc:
                 warnings.append("向量化失败，已保留全文索引：%s" % exc)
-                vectors = [None] * len(chunks)
+                report["embedding_failures"] += 1
 
         document_id = _document_id(rel_path)
         now = datetime.now(timezone.utc).isoformat()
@@ -225,8 +269,9 @@ def ingest_library(
                 """INSERT INTO documents (
                     id, rel_path, title, category, subcategory, country, project, contract_form,
                     discipline, document_type, language, version, effective_date, confidentiality,
-                    source_org, tags_json, checksum, mtime, indexed_at, parser, warnings_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    source_org, tags_json, checksum, mtime, indexed_at, parser, warnings_json,
+                    security_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     document_id, rel_path, str(metadata["title"]), str(metadata["category"]),
                     str(metadata["subcategory"]), str(metadata["country"]), str(metadata["project"]),
@@ -235,6 +280,7 @@ def ingest_library(
                     str(metadata["effective_date"]), str(metadata["confidentiality"]),
                     str(metadata["source_org"]), tags_json, checksum, path.stat().st_mtime, now,
                     parser_name, json.dumps(warnings, ensure_ascii=False),
+                    json.dumps(security, ensure_ascii=False),
                 ),
             )
             for ordinal, (chunk, vector) in enumerate(zip(chunks, vectors)):
@@ -260,7 +306,12 @@ def ingest_library(
                     ),
                 )
         report["indexed"] += 1
-        report["files"].append({"path": rel_path, "chunks": len(chunks), "warnings": warnings})
+        report["files"].append({
+            "path": rel_path,
+            "chunks": len(chunks),
+            "warnings": warnings,
+            "security": security,
+        })
         report["warnings"].extend("%s：%s" % (rel_path, warning) for warning in warnings)
 
     if selected is None:
@@ -271,5 +322,6 @@ def ingest_library(
                     connection.execute("DELETE FROM chunks_fts WHERE doc_id = ?", (row["id"],))
                     connection.execute("DELETE FROM documents WHERE id = ?", (row["id"],))
                 report["removed"] += 1
+    report["pending_embeddings"] = connection.execute("SELECT COUNT(*) FROM chunks WHERE vector IS NULL").fetchone()[0]
     connection.close()
     return report

@@ -7,7 +7,8 @@
     "chunk_chars": 1200,
     "chunk_overlap_chars": 180,
     "lexical_weight": 0.65,
-    "semantic_weight": 0.35
+    "semantic_weight": 0.35,
+    "max_chunks_per_document": 3
   },
   "ollama": {
     "enabled": true,
@@ -16,14 +17,80 @@
     "embedding_model": "bge-m3",
     "timeout_seconds": 180
   },
+  "chat": {
+    "provider": "gemini"
+  },
+  "gemini": {
+    "enabled": true,
+    "base_url": "https://generativelanguage.googleapis.com/v1beta",
+    "model": "gemini-3.6-flash",
+    "models": ["gemini-3.6-flash", "gemini-3.1-pro-preview"],
+    "timeout_seconds": 180
+  },
+  "qwen": {
+    "enabled": true,
+    "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "model": "qwen-plus",
+    "models": ["qwen-plus", "qwen-max", "qwen-turbo"],
+    "api_key_env": "DASHSCOPE_API_KEY",
+    "timeout_seconds": 180
+  },
+  "kimi": {
+    "enabled": true,
+    "base_url": "https://api.moonshot.cn/v1",
+    "model": "kimi-k2.6",
+    "models": ["kimi-k2.6", "kimi-k3"],
+    "api_key_env": "MOONSHOT_API_KEY",
+    "timeout_seconds": 180
+  },
+  "openai": {
+    "enabled": true,
+    "base_url": "https://api.openai.com/v1",
+    "model": "gpt-5.2",
+    "models": ["gpt-5.6-luna", "gpt-5.2", "gpt-5-mini"],
+    "model_labels": {
+      "gpt-5.6-luna": "ChatGPT 5.6 Luna · Max"
+    },
+    "model_options": {
+      "gpt-5.6-luna": {"reasoning_effort": "max"}
+    },
+    "api_key_env": "OPENAI_API_KEY",
+    "timeout_seconds": 180
+  },
+  "glm": {
+    "enabled": true,
+    "base_url": "https://open.bigmodel.cn/api/paas/v4",
+    "model": "glm-5.2",
+    "models": ["glm-5.2", "glm-4.7", "glm-4.5-air"],
+    "api_key_env": "ZAI_API_KEY",
+    "timeout_seconds": 180
+  },
+  "deepseek": {
+    "enabled": true,
+    "base_url": "https://api.deepseek.com",
+    "model": "deepseek-v4-flash",
+    "models": ["deepseek-v4-flash", "deepseek-v4-pro"],
+    "model_labels": {
+      "deepseek-v4-flash": "DeepSeek V4 Flash · 深度思考",
+      "deepseek-v4-pro": "DeepSeek V4 Pro · 深度思考"
+    },
+    "model_options": {
+      "deepseek-v4-flash": {"reasoning_effort": "high"},
+      "deepseek-v4-pro": {"reasoning_effort": "high"}
+    },
+    "api_key_env": "DEEPSEEK_API_KEY",
+    "timeout_seconds": 180
+  },
   "server": {
     "host": "127.0.0.1",
     "port": 8765
   },
   "indexing": {
     "allowed_extensions": [
-      ".txt", ".md", ".markdown", ".csv", ".tsv", ".json", ".html", ".htm",
-      ".pdf", ".docx", ".xlsx", ".pptx", ".xml", ".yaml", ".yml", ".toml"
+      ".txt", ".text", ".md", ".markdown", ".rst", ".adoc", ".asciidoc",
+      ".csv", ".tsv", ".json", ".html", ".htm", ".xhtml",
+      ".pdf", ".docx", ".xlsx", ".pptx", ".pptm", ".epub", ".rtf",
+      ".mobi", ".azw", ".azw3", ".xml", ".yaml", ".yml", ".toml"
     ],
     "excluded_names": [".DS_Store", "Thumbs.db"],
     "embed_on_ingest": "auto"
@@ -31,6 +98,7 @@
   "privacy": {
     "bind_local_only": true,
     "telemetry": false,
-    "send_documents_to_cloud": false
+    "send_documents_to_cloud": false,
+    "allow_cloud_chat": true
   }
 }

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.ollama.server</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>/Users/dj/Library/Application Support/InternationalEngineeringKB/start-ollama.command</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/dj/Library/Application Support/InternationalEngineeringKB</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>OLLAMA_HOST</key>
+    <string>127.0.0.1:11434</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>StandardOutPath</key>
+  <string>/Users/dj/Library/Application Support/InternationalEngineeringKB/.logs/ollama.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/dj/Library/Application Support/InternationalEngineeringKB/.logs/ollama-error.log</string>
+</dict>
+</plist>

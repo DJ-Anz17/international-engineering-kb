@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Optional
 
-from .ollama import chat
+from .chat_provider import chat
 from .prompts import BASE_SYSTEM_PROMPT, load_mode_prompt
 from .search import search
 

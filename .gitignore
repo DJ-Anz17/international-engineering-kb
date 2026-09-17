@@ -2,6 +2,8 @@
 data/
 backups/
 /library/
+.logs/
+本地资料库
 __pycache__/
 *.pyc
 .DS_Store

@@ -5,16 +5,38 @@
 ## 已实现
 
 - 国际工程专用九大资料域：投标报价、技术方案、工效资源、风险/HSE、合同索赔、国别市场、项目复盘、标准规范、模板清单；
-- PDF、DOCX、XLSX、PPTX、Markdown、TXT、CSV、HTML、JSON 等格式；
+- PDF、EPUB、MOBI/AZW/AZW3、DOCX、XLSX、PPTX/PPTM、RTF、Markdown、TXT、CSV、HTML、JSON 等格式；
 - 中文字符 n-gram + 英文关键词 + 国际工程同义词的全文检索；
-- Ollama 可用时自动启用 BGE-M3 向量检索，采用全文/向量融合排序；
+- Ollama + BGE-M3 在本机完成向量检索，采用全文/向量融合排序；
+- 可选择 Ollama、Gemini、Qwen、Kimi、OpenAI 或 GLM 生成回答，云端 API Key 保存在 macOS 钥匙串；
 - 所有结果保留原文件、页码/工作表/幻灯片定位和原文片段；
 - 八种分析模式：依据问答、报价复核、技术审查、工效测算、风险登记册、合同审查、索赔通知、国别分析；
 - 本地网页、命令行和 MCP 三种入口；
 - 默认只监听 `127.0.0.1`，没有遥测，不向云端发送资料；
 - 增量索引、文件删除同步、元数据筛选、上传到“待分类”。
+- 上传后会显示向量化覆盖率；Ollama 临时不可用时仍保留全文索引，恢复后再次点击“增量更新索引”会自动补齐缺失向量。
+- 左侧“资料目录”可直接打开已索引的原文件，并显示每份资料的向量覆盖情况。
+- 融合 `learn-from-materials` 思路：材料安全扫描、单文档学习范围、快速了解、分主题系统学习、学习自检、浏览器本地笔记和 `.learnkb.zip` 可追溯离线学习包。
 
 ## 5 分钟开始
+
+## 已部署的 macOS 本地服务
+
+本机安装后的运行副本位于：
+
+```text
+~/Library/Application Support/InternationalEngineeringKB
+```
+
+- 登录后自动启动 Ollama 和知识库；
+- 桌面的“国际工程知识库”快捷方式可直接打开；
+- 本项目目录中的 `本地资料库` 链接指向实际资料目录；
+- 双击 `run.command` 可检查服务并打开网页；
+- 双击 `stop-local.command` 可停止两个用户级服务。
+- 源代码更新后，双击 `update-local.command` 可保留资料和索引并更新已安装的运行副本。
+- 如果更新后网页仍显示“资料目录暂不可用”，先双击 `stop-local.command`，再双击 `run.command`；`run.command` 会检测旧后台并重新拉起服务。
+
+本地地址始终为 [http://127.0.0.1:8765](http://127.0.0.1:8765)，默认不对局域网开放。
 
 ### 1. 先用纯本地检索（不需要安装模型）
 
@@ -49,6 +71,24 @@ python3 -m ieg_kb serve
 
 模型占用数 GB；不需要 AI 生成回答时可跳过。模型安装后，重新运行 `./reindex.command` 即可建立向量索引。
 
+### 4. 选择 AI 提供商和模型
+
+系统支持以下回答服务：
+
+- `Ollama`：完全本地，可使用本机已经安装的 Qwen 等模型；
+- `Gemini`：Google Gemini API；
+- `Qwen`：阿里云百炼兼容接口；
+- `Kimi`：月之暗面兼容接口；
+- `OpenAI`：OpenAI API；
+- `GLM`：智谱开放平台兼容接口。
+- `DeepSeek`：DeepSeek 官方 OpenAI 兼容接口，提供 V4 Flash 和 V4 Pro。
+
+双击 `configure-ai.command`，选择服务商并粘贴相应 API Key。每个 Key 都单独进入 macOS 钥匙串，不会写入 `kb_config.json`、日志或 Git。然后在网页左侧选择“AI 提供商”和“回答模型”，点击“应用模型选择”。
+
+OpenAI 模型列表包含 `ChatGPT 5.6 Luna · Max`：实际 API 模型为 `gpt-5.6-luna`，并自动使用 `reasoning_effort: max`。界面采用易读名称，但不会伪造 `gpt-5.6-luna-max` 模型标识。
+
+无论选择哪种回答模型，`bge-m3` 都在本机完成资料向量检索。选择云端服务时，只有用户问题和命中的少量证据片段会发送给相应服务商；原始文件、SQLite 索引和完整资料不会上传。发送合同、投标或项目资料前，请确认其保密要求允许发送给所选服务商。
+
 ## 放入自己的资料
 
 推荐把原始文件复制到 [library](library) 对应目录；拿不准的先放 `00_待分类`。随后：
@@ -58,6 +98,33 @@ python3 -m ieg_kb ingest
 ```
 
 也可以在网页左侧上传，系统会先放入“待分类”并立即索引。
+
+## 材料学习功能
+
+网页左侧“指定学习资料”用于把检索严格限制在一份文件。选中资料后可使用三种学习任务：
+
+- **材料快速了解**：提炼核心框架、必要术语、工程启示和材料边界；
+- **材料系统学习（分主题）**：围绕指定章节或主题展开定义、机制、适用条件、易混点和行动规则；
+- **材料学习自检**：只依据命中的原文证据生成记忆、解释、应用和迁移题。
+
+长书的“系统学习”应按章节或主题分批执行。系统会明确当前命中范围，不会把若干检索片段冒充整本书的完整覆盖。
+
+每条检索证据可以收藏到“我的本地笔记”。笔记只保存在当前浏览器的 `localStorage` 中，可以导出 JSON，不会自动同步到云端。
+
+点击“导出所选资料学习包”会生成并下载 `<文档ID>.learnkb.zip`，其中包括：
+
+- 可全文搜索和记录本地笔记的单文件 `learning.html`；
+- 带来源 ID、定位和内容 SHA-256 的 `full_text.md`；
+- `source_map.json`、`source_manifest.json`、`metadata.json`；
+- `material-security-report.json` 和 `INDEX.md`。
+
+命令行也可以导出：
+
+```bash
+python3 -m ieg_kb learning-pack <文档ID>
+```
+
+DOCX、PPTX/PPTM、XLSX 和 EPUB 会先检查路径穿越、加密条目、异常展开体积及压缩比。材料中的提示词、角色覆盖、外传要求和命令只会被标记为待复核数据，不会执行。MOBI/AZW/AZW3 需要本机已有 Calibre 的 `ebook-convert`；缺失时知识库会给出明确解析警告。
 
 ### 元数据
 
@@ -106,7 +173,7 @@ python3 -m ieg_kb ingest --force --embeddings on
 # 直接检索
 python3 -m ieg_kb search "变更通知期限" --category "合同与索赔"
 
-# 本地 AI 分析
+# 使用配置的 AI 服务分析
 python3 -m ieg_kb ask "复核本项目的索赔通知程序" --mode claim_notice
 
 # 统计
@@ -120,7 +187,7 @@ MCP 服务提供四个只读工具：
 - `kb_search`：检索并返回可引用原文；
 - `kb_get_document`：按文档 ID 分页读取；
 - `kb_status`：查看资料库状态；
-- `kb_answer`：由本机 Ollama 生成专业分析。
+- `kb_answer`：由配置的 AI 服务生成专业分析。
 
 启动命令是：
 
@@ -153,3 +220,5 @@ MCP 服务提供四个只读工具：
 - [GitHub 项目比较](docs/GITHUB_PROJECT_COMPARISON.md)
 - [系统架构与检索逻辑](docs/ARCHITECTURE.md)
 - [日常治理与建设路线](docs/OPERATIONS.md)
+- [learn-from-materials 功能融合说明](docs/LEARN_FROM_MATERIALS_INTEGRATION.md)
+- [第三方开源说明](THIRD_PARTY_NOTICES.md)

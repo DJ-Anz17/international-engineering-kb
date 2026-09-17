@@ -10,10 +10,12 @@ from pathlib import Path
 from typing import Any, Dict
 
 from .answer import answer_question
+from .chat_provider import status as chat_status
 from .config import database_path, library_path, load_config, write_default_config
 from .database import connect, initialize, stats
 from .ingest import ingest_library
 from .library import initialize_library
+from .learning_export import export_learning_pack
 from .mcp_server import run as run_mcp
 from .ollama import health
 from .search import search
@@ -25,11 +27,12 @@ def _print(value: Any) -> None:
 
 
 def _filters(args: argparse.Namespace) -> Dict[str, str]:
-    keys = ("category", "country", "project", "contract_form")
+    keys = ("document_id", "category", "country", "project", "contract_form")
     return {key: getattr(args, key, "") for key in keys if getattr(args, key, "")}
 
 
 def _add_filters(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--document-id", default="", help="只检索指定文档 ID")
     parser.add_argument("--category", default="", help="类别精确筛选")
     parser.add_argument("--country", default="", help="国别精确筛选")
     parser.add_argument("--project", default="", help="项目精确筛选")
@@ -53,7 +56,7 @@ def main(argv: Any = None) -> int:
     search_parser.add_argument("--lexical-only", action="store_true")
     _add_filters(search_parser)
 
-    ask_parser = subparsers.add_parser("ask", help="用本机 Ollama 生成带引用的回答")
+    ask_parser = subparsers.add_parser("ask", help="用配置的 AI 服务生成带引用的回答")
     ask_parser.add_argument("question")
     ask_parser.add_argument("--mode", default="grounded_qa")
     ask_parser.add_argument("--top-k", type=int, default=8)
@@ -67,6 +70,8 @@ def main(argv: Any = None) -> int:
     subparsers.add_parser("mcp", help="启动 MCP stdio 服务")
     subparsers.add_parser("status", help="查看索引统计")
     subparsers.add_parser("doctor", help="检查本机环境")
+    learning_parser = subparsers.add_parser("learning-pack", help="导出指定文档的可追溯离线学习包")
+    learning_parser.add_argument("document_id", help="已索引文档 ID")
 
     args = parser.parse_args(argv)
     config = load_config(args.config)
@@ -99,6 +104,7 @@ def main(argv: Any = None) -> int:
         value = stats(connection)
         connection.close()
         value["ollama"] = health(config)
+        value["chat"] = chat_status(config)
         _print(value)
     elif args.command == "doctor":
         try:
@@ -118,7 +124,10 @@ def main(argv: Any = None) -> int:
             "database": str(database_path(config)),
             "pdf_parser": pdf,
             "ollama": health(config),
+            "chat": chat_status(config),
         })
+    elif args.command == "learning-pack":
+        _print(export_learning_pack(config, args.document_id))
     return 0
 
 

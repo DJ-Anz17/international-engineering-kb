@@ -13,6 +13,7 @@ def _filter_sql(filters: Optional[Dict[str, str]], alias: str = "d") -> Tuple[st
     clauses: List[str] = []
     params: List[str] = []
     mapping = {
+        "document_id": "id",
         "category": "category",
         "subcategory": "subcategory",
         "country": "country",
@@ -128,7 +129,19 @@ def search(
     for rank, chunk_id in enumerate(semantic_order, 1):
         scores[chunk_id] += semantic_weight / (60.0 + rank)
     ordered = sorted(by_id.values(), key=lambda item: scores[item["chunk_id"]], reverse=True)
-    for index, item in enumerate(ordered[:limit], 1):
+    max_per_document = max(1, int(config["retrieval"].get("max_chunks_per_document", 3)))
+    diverse: List[Dict[str, Any]] = []
+    counts: Dict[str, int] = {}
+    deferred: List[Dict[str, Any]] = []
+    for item in ordered:
+        document_id = str(item["document_id"])
+        if counts.get(document_id, 0) < max_per_document:
+            diverse.append(item)
+            counts[document_id] = counts.get(document_id, 0) + 1
+        else:
+            deferred.append(item)
+    ordered = (diverse + deferred)[:limit]
+    for index, item in enumerate(ordered, 1):
         item["rank"] = index
         item["score"] = round(scores[item["chunk_id"]], 8)
         item["retrieval"] = "hybrid" if item["chunk_id"] in lexical_order and item["chunk_id"] in semantic_order else (
@@ -157,5 +170,6 @@ def get_document_chunks(config: Dict[str, Any], document_id: str, offset: int = 
     }
     result["document"]["tags"] = json.loads(result["document"].pop("tags_json", "[]"))
     result["document"]["warnings"] = json.loads(result["document"].pop("warnings_json", "[]"))
+    result["document"]["security"] = json.loads(result["document"].pop("security_json", "{}"))
     connection.close()
     return result

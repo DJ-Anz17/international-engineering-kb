@@ -7,6 +7,7 @@ import struct
 import urllib.error
 import urllib.parse
 import urllib.request
+import time
 from typing import Any, Dict, List, Optional, Sequence
 
 
@@ -38,11 +39,21 @@ def _request(
         method="GET" if payload is None else "POST",
     )
     effective_timeout = timeout or int(config["ollama"].get("timeout_seconds", 180))
-    try:
-        with urllib.request.urlopen(request, timeout=effective_timeout) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except (urllib.error.URLError, urllib.error.HTTPError, socket.timeout, json.JSONDecodeError) as exc:
-        raise OllamaError("无法访问本地 Ollama：%s" % exc) from exc
+    last_error: Optional[BaseException] = None
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(request, timeout=effective_timeout) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            last_error = exc
+            if exc.code not in {429, 502, 503, 504} or attempt == 2:
+                break
+        except (urllib.error.URLError, socket.timeout, json.JSONDecodeError) as exc:
+            last_error = exc
+            if attempt == 2:
+                break
+        time.sleep(0.4 * (attempt + 1))
+    raise OllamaError("无法访问本地 Ollama：%s" % last_error) from last_error
 
 
 def health(config: Dict[str, Any]) -> Dict[str, Any]:

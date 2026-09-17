@@ -13,6 +13,9 @@ MODE_LABELS = {
     "contract_review": "合同条款审查",
     "claim_notice": "索赔与通知",
     "country_entry": "国别与属地化",
+    "material_quick": "材料快速了解",
+    "material_systematic": "材料系统学习（分主题）",
+    "learning_quiz": "材料学习自检",
 }
 
 

@@ -13,17 +13,21 @@ from pathlib import Path
 from typing import Any, Dict
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
+from . import __version__
 from .answer import answer_question
-from .config import database_path, library_path, public_config
+from .chat_provider import catalog as chat_catalog
+from .chat_provider import status as chat_status
+from .config import database_path, library_path, public_config, save_chat_selection
 from .database import connect, initialize, stats
 from .ingest import ingest_library
+from .learning_export import export_learning_pack
 from .ollama import health
 from .prompts import modes
 from .search import get_document_chunks, search
 
 
 class KnowledgeBaseHandler(BaseHTTPRequestHandler):
-    server_version = "IEGKB/0.1"
+    server_version = "IEGKB/0.2"
 
     @property
     def config(self) -> Dict[str, Any]:
@@ -48,7 +52,7 @@ class KnowledgeBaseHandler(BaseHTTPRequestHandler):
         return json.loads(self.rfile.read(length).decode("utf-8") or "{}")
 
     def _filters(self, body: Dict[str, Any]) -> Dict[str, str]:
-        keys = ("category", "subcategory", "country", "project", "contract_form", "discipline", "document_type")
+        keys = ("document_id", "category", "subcategory", "country", "project", "contract_form", "discipline", "document_type")
         return {key: str(body.get(key, "")) for key in keys if body.get(key)}
 
     def do_GET(self) -> None:
@@ -62,7 +66,9 @@ class KnowledgeBaseHandler(BaseHTTPRequestHandler):
             initialize(connection)
             value = stats(connection)
             connection.close()
+            value["version"] = __version__
             value["ollama"] = health(self.config)
+            value["chat"] = chat_status(self.config)
             value["modes"] = modes()
             self._json(value)
         elif parsed.path == "/api/config":
@@ -75,8 +81,32 @@ class KnowledgeBaseHandler(BaseHTTPRequestHandler):
                 int(query.get("offset", ["0"])[0]),
                 int(query.get("limit", ["20"])[0]),
             ))
+        elif parsed.path == "/api/documents":
+            connection = connect(database_path(self.config))
+            initialize(connection)
+            rows = connection.execute(
+                """SELECT d.id, d.title, d.rel_path, d.category, d.subcategory, d.country,
+                          d.project, d.contract_form, d.document_type, d.version,
+                          d.effective_date, d.confidentiality, d.indexed_at,
+                          d.parser, d.checksum, d.warnings_json, d.security_json, COUNT(c.id) AS chunks,
+                          SUM(CASE WHEN c.vector IS NOT NULL THEN 1 ELSE 0 END) AS embedded_chunks
+                   FROM documents d LEFT JOIN chunks c ON c.doc_id = d.id
+                   GROUP BY d.id ORDER BY d.indexed_at DESC, d.title"""
+            ).fetchall()
+            documents = []
+            for row in rows:
+                item = dict(row)
+                item["warnings"] = json.loads(item.pop("warnings_json") or "[]")
+                item["security"] = json.loads(item.pop("security_json") or "{}")
+                item["embedded_chunks"] = int(item["embedded_chunks"] or 0)
+                item["chunks"] = int(item["chunks"] or 0)
+                documents.append(item)
+            connection.close()
+            self._json({"documents": documents})
         elif parsed.path == "/api/file":
             self._serve_library_file(parse_qs(parsed.query).get("path", [""])[0])
+        elif parsed.path == "/api/learning-pack":
+            self._serve_learning_pack(parse_qs(parsed.query).get("id", [""])[0])
         else:
             self.send_error(HTTPStatus.NOT_FOUND)
 
@@ -104,6 +134,22 @@ class KnowledgeBaseHandler(BaseHTTPRequestHandler):
             elif parsed.path == "/api/reindex":
                 body = self._body()
                 self._json(ingest_library(self.config, force=bool(body.get("force", False))))
+            elif parsed.path == "/api/learning-pack":
+                body = self._body()
+                value = export_learning_pack(self.config, str(body.get("document_id", "")))
+                value["download_url"] = "/api/learning-pack?id=" + quote(value["document_id"])
+                self._json(value)
+            elif parsed.path == "/api/chat-provider":
+                body = self._body()
+                provider = str(body.get("provider", "")).lower()
+                model = str(body.get("model", "")).strip()
+                available = {item["id"]: item for item in chat_catalog(self.config)}
+                if provider not in available:
+                    raise ValueError("不支持的 AI 提供商。")
+                if not model or len(model) > 100 or any(char in model for char in "\\/\r\n"):
+                    raise ValueError("模型名称无效。")
+                save_chat_selection(self.config, provider, model)
+                self._json({"chat": chat_status(self.config)})
             elif parsed.path == "/api/upload":
                 self._upload()
             else:
@@ -136,6 +182,22 @@ class KnowledgeBaseHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Disposition", "inline; filename*=UTF-8''%s" % quote(target.name))
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _serve_learning_pack(self, document_id: str) -> None:
+        if not re.fullmatch(r"[0-9a-f]{20}", document_id):
+            self.send_error(HTTPStatus.BAD_REQUEST)
+            return
+        target = database_path(self.config).parent / "learning-packs" / (document_id + ".learnkb.zip")
+        if not target.is_file():
+            self.send_error(HTTPStatus.NOT_FOUND)
+            return
+        data = target.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/zip")
+        self.send_header("Content-Disposition", "attachment; filename*=UTF-8''%s" % quote(target.name))
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
